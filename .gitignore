@@ -1,0 +1,10 @@
+*.atsuo
+*.vsidx
+*.ipch
+*.suo
+*.db
+*.json
+*.config
+*.pdb
+
+/ParametrizationTool/obj/Debug
