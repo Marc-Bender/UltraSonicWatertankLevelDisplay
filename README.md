@@ -1,6 +1,8 @@
 # README
 
-Mistakes have been made... You will find them listed here alongside a description how to fix/circumvent them. 
+##Intended Usecase
+Waterlevel display in multitank battey of tanks. Tanks are located in basement, sense device will be mounted on top of tanks far enough away from filling port. 
+Thus no watertightness or waterresistance is implemented for any of the components.
 
 ## Design Features
 Multiple Sensorboards "supported" by design (read Mistakes#J5 for more).
