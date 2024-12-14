@@ -51,6 +51,26 @@ Default values for liter estimation algorithm when activated by define but not c
 Define for circumventing the Battery voltage measurement evaluation -- effectively rendering the BatteryLowFault State inoperable/unreachable.
 
 ## Mistakes 
+
+### Parametrization tool 
+
+Somehow the parametrization did not work in the real usecase where the device is powered from a 9V battery; neither with connected gnd nor with connected 5V rail nor both connected (to the usb to serial brigde)
+Parametrization also did not work no matter if the TX and RX lines are crossed or not. -- I did not feel like investing any time in this issue anymore, thus did not use the parametrization at all and hardcoded the tank geometry
+Circumvent: recompile firmware with different values for each tank geometry or manually generate the eeprom file. 
+
+### voltage measurement 
+
+The battery voltage measurement is wildly off -- this may be down to the reference of the ADC (VCCA) not being measured in any way impacting the measured value...
+Circumvent: none
+
+### case design / Assembly design 
+
+the screw holes for the display retainment screws should not have gone through the entire part. 
+the Controller PCB should have had any mounting holes. 
+The PCB Sandwich should be held in place on the button side as well in some way; solved by drilling through the PCB (somewhere in the gnd plane above the button) and into the frontplate then securing the pcb sandwich with 1 or 2 threads of a screw
+The button actuator may collide with the PCB sandwich and should be reshaped.
+The Parametrization header's 5V pin is obscured by the lower mounting hole of the display -> circumvent by snipping that off.
+
 ### Q5
 Reverse voltage Protection "Diode" Transistor (Q5) did not work in my testing.
 Circumvent by placing a ordinary diode between pins 1 and 2 of the footprint.
