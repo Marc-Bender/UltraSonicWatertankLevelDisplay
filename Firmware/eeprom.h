@@ -23,8 +23,8 @@
 #define AREA_ENTRY_SIZE (2)
 
 extern uint16_t EEPROM_tankfull_cm, EEPROM_tankempty_cm;
-extern uint8_t EEPROM_numOfTanks, EEPROM_areaEntriesUsed, EEPROM_areaEntrySpacing, EEPROM_averagingSampleCnt, EEPROM_sensorType;
-extern uint16_t * EEPROM_areaEntries;
+extern uint8_t EEPROM_numOfTanks, EEPROM_areaEntriesUsed, EEPROM_areaEntrySpacing_cm, EEPROM_averagingSampleCnt, EEPROM_sensorType;
+extern uint16_t * EEPROM_areaEntries_cm2;
 
 typedef enum
 {

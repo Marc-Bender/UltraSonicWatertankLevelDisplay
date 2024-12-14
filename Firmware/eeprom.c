@@ -12,8 +12,8 @@
 #include <stddef.h>
 
 uint16_t EEPROM_tankfull_cm, EEPROM_tankempty_cm;
-uint8_t EEPROM_numOfTanks, EEPROM_areaEntriesUsed, EEPROM_areaEntrySpacing, EEPROM_averagingSampleCnt, EEPROM_sensorType;
-uint16_t * EEPROM_areaEntries = NULL;
+uint8_t EEPROM_numOfTanks, EEPROM_areaEntriesUsed, EEPROM_areaEntrySpacing_cm, EEPROM_averagingSampleCnt, EEPROM_sensorType;
+uint16_t * EEPROM_areaEntries_cm2 = NULL;
 
 void EEPROM_writeByte(const uint16_t address, const uint8_t data)
 {
@@ -70,7 +70,7 @@ void EEPROM_init(void)
 	EEPROM_tankempty_cm = EEPROM_readUint16(ADDR_TANKEMPTY_CM);
 	EEPROM_numOfTanks = EEPROM_readByte(ADDR_NUM_OF_TANKS_IN_PARALELL);
 	EEPROM_areaEntriesUsed = EEPROM_readByte(ADDR_AREA_ENTRIES_USED);
-	EEPROM_areaEntrySpacing = EEPROM_readByte(ADDR_AREA_ENTRY_SPACING_CM);
+	EEPROM_areaEntrySpacing_cm = EEPROM_readByte(ADDR_AREA_ENTRY_SPACING_CM);
 	EEPROM_averagingSampleCnt = EEPROM_readByte(ADDR_AVERAGING_SAMPLE_CNT);
 	EEPROM_sensorType = EEPROM_readByte(ADDR_SENSOR_TYPE);
 	
@@ -79,14 +79,14 @@ void EEPROM_init(void)
 		&& (EEPROM_areaEntriesUsed != 0)
 	  )
 	{
-		EEPROM_areaEntries = (uint16_t*)malloc(sizeof(uint16_t) * EEPROM_areaEntriesUsed);
+		EEPROM_areaEntries_cm2 = (uint16_t*)malloc(sizeof(uint16_t) * EEPROM_areaEntriesUsed);
 	}
 	else
 	{
 		// apparently not initialized or initialized wrong... 
 		EEPROM_areaEntriesUsed = 0; // since that is used in the rest of the code as a checker value and if not it should not do much harm 
 	}
-	if(EEPROM_areaEntries != NULL)
+	if(EEPROM_areaEntries_cm2 != NULL)
 	{
 		// initialization of array has worked (ie. malloc did not fail)
 		for(uint8_t i=0;i<EEPROM_areaEntriesUsed;i++)
@@ -94,43 +94,35 @@ void EEPROM_init(void)
 			const uint16_t helper = EEPROM_readUint16(ADDR_AREA_ENTRY_0 + (i * sizeof(uint16_t)));
 			if(helper != 0xFFFF)
 			{
-				EEPROM_areaEntries[i] = helper;
+				EEPROM_areaEntries_cm2[i] = helper;
 			}
 			else
 			{
-				EEPROM_areaEntries[i] = 0;
+				EEPROM_areaEntries_cm2[i] = 0;
 			}
 		}
 	}
 	else
 	{
 		// do not retrieve area entries
-		#ifdef DEBUG_LITER_ALGO
-		EEPROM_areaEntriesUsed = 10;
-		EEPROM_areaEntries = (uint16_t*)malloc(sizeof(uint16_t) * EEPROM_areaEntriesUsed);
-		EEPROM_areaEntries[0] = 50;
-		EEPROM_areaEntries[1] = 45;
-		EEPROM_areaEntries[2] = 40;
-		EEPROM_areaEntries[3] = 35;
-		EEPROM_areaEntries[4] = 40;
-		EEPROM_areaEntries[5] = 45;
-		EEPROM_areaEntries[6] = 50;
-		EEPROM_areaEntries[7] = 50;
-		EEPROM_areaEntries[8] = 50;
-		EEPROM_areaEntries[9] = 50;
+		#define PARAMETRIZATION_IN_CODE (1)
+		#ifdef PARAMETRIZATION_IN_CODE
+		EEPROM_areaEntriesUsed = 1;
+		EEPROM_areaEntries_cm2 = (uint16_t*)malloc(sizeof(uint16_t) * EEPROM_areaEntriesUsed);
+		EEPROM_areaEntries_cm2[0] = 4900;
 		#endif
 	}
 
 	if(EEPROM_tankfull_cm == 0xFFFF)
 	{
 		// uninitialized --> replace the value with a default value	for the opearation of the application
-		EEPROM_tankfull_cm = 10; // 10cm for testing purposes.
+		EEPROM_tankfull_cm = 20; // 10cm for testing purposes.
 	}else {/*initialized no need to change value*/}
 
 	if(EEPROM_tankempty_cm == 0xFFFF)
 	{
 		// uninitialized --> replace the value with a default value	for the opearation of the application
-		EEPROM_tankempty_cm = 100; // 1m for testing purposes.
+		EEPROM_tankempty_cm = 175; // 1m for testing purposes.
 	}else {/*initialized no need to change value*/}
 
 	if(EEPROM_sensorType == 0xFF)
@@ -142,19 +134,19 @@ void EEPROM_init(void)
 	if(EEPROM_numOfTanks == 0xFF)
 	{
 		// uninitialized --> replace the value with a default value	for the opearation of the application
-		EEPROM_numOfTanks = 1; // do the maths with only one tank being considered for testing purposes
+		EEPROM_numOfTanks = 4; // do the maths with only one tank being considered for testing purposes
 	}else {/*initialized no need to change value*/}
 
 	if(EEPROM_averagingSampleCnt == 0xFF)
 	{
 		// uninitialized --> replace the value with a default value	for the opearation of the application
-		EEPROM_averagingSampleCnt = 1; // do not average any samples and instead go with only one measurement
+		EEPROM_averagingSampleCnt = 5; // do not average any samples and instead go with only one measurement
 	}else {/*initialized no need to change value*/}
 
-	if(EEPROM_areaEntrySpacing == 0xFF)
+	if(EEPROM_areaEntrySpacing_cm == 0xFF)
 	{
 		// uninitialized --> replace the value with a default value	for the opearation of the application
-		EEPROM_areaEntrySpacing = 10; // if spacing of area entries not initialized assume 10cm spacing.
+		EEPROM_areaEntrySpacing_cm = 175; // if spacing of area entries not initialized assume 10cm spacing.
 	}else {/*initialized no need to change value*/}
 }
 
@@ -176,9 +168,9 @@ void EEPROM_syncToEEPROM(void)
 	{
 		EEPROM_writeByte(ADDR_AREA_ENTRIES_USED,EEPROM_areaEntriesUsed);
 	} else {/*not needed*/}
-	if (EEPROM_areaEntrySpacing != EEPROM_readByte(ADDR_AREA_ENTRY_SPACING_CM))
+	if (EEPROM_areaEntrySpacing_cm != EEPROM_readByte(ADDR_AREA_ENTRY_SPACING_CM))
 	{
-		EEPROM_writeByte(ADDR_AREA_ENTRY_SPACING_CM,EEPROM_areaEntrySpacing);
+		EEPROM_writeByte(ADDR_AREA_ENTRY_SPACING_CM,EEPROM_areaEntrySpacing_cm);
 	} else {/*not needed*/}
 	if (EEPROM_averagingSampleCnt != EEPROM_readByte(ADDR_AVERAGING_SAMPLE_CNT))
 	{
@@ -190,9 +182,9 @@ void EEPROM_syncToEEPROM(void)
 	} else {/*not needed*/}
 	for(uint8_t i=0;i<EEPROM_areaEntriesUsed;i++)
 	{
-		if (EEPROM_areaEntries[i] != EEPROM_readUint16(ADDR_AREA_ENTRY_0 + (i * AREA_ENTRY_SIZE)))
+		if (EEPROM_areaEntries_cm2[i] != EEPROM_readUint16(ADDR_AREA_ENTRY_0 + (i * AREA_ENTRY_SIZE)))
 		{
-			EEPROM_writeUint16(ADDR_AREA_ENTRY_0 + (i*AREA_ENTRY_SIZE),EEPROM_areaEntries[i]);
+			EEPROM_writeUint16(ADDR_AREA_ENTRY_0 + (i*AREA_ENTRY_SIZE),EEPROM_areaEntries_cm2[i]);
 		} else {/*not needed*/}
 	}
 }

@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <avr/interrupt.h>
 
-#define IS_USB_POWERED (1)
+#define IS_USB_POWERED (0)
 
 #define SPEED_OF_SOUND_MM_PER_MILLI_SEC (343)
 #define PARAMETRIZATION_REQUEST_SIZE (6) /*1 start character, 1 read write close connection indicator, 2 address bytes, 2 value bytes*/
@@ -112,8 +112,6 @@ void Appl_systemStateMachine_execute(void)
 				GPIO_setSensSupP_to(true); // positive supply to high aka vcc -> effectively provide power to the sensors
 				_delay_ms(100); // allow the range finder to power up
 				volatile uint32_t distanceAvg = 0;
-				#define SENSOR 1
-				#if SENSOR == 1
 				for(uint8_t i=0;i<EEPROM_averagingSampleCnt;i++)
 				{
 					volatile uint32_t durationInTicks = 0;
@@ -165,44 +163,44 @@ void Appl_systemStateMachine_execute(void)
 					volatile const uint32_t distanceCm = durationInMicroseconds * SPEED_OF_SOUND_MM_PER_MILLI_SEC / 2 / 10000;
 					distanceAvg += distanceCm;
 				}
-				#endif
 				
 				distanceAvg /= EEPROM_averagingSampleCnt; // divide the summed up distance samples to actually get the average distance to be displayed
 
-				uint16_t distanceHigherThanEmpty = EEPROM_tankempty_cm > distanceAvg ? EEPROM_tankempty_cm - distanceAvg : 0; // empty tank should always be less than the measured distance otherwise the tank is "more than empty" so show an empty tank instead...
-				uint16_t litersInTank = 0;
+				volatile uint16_t distanceHigherThanEmpty_cm = EEPROM_tankempty_cm > distanceAvg ? EEPROM_tankempty_cm - distanceAvg : 0; // empty tank should always be less than the measured distance otherwise the tank is "more than empty" so show an empty tank instead...
+				volatile uint32_t cm3InTank = 0;
 
 				if(
 					  (EEPROM_numOfTanks != 0)// calculation of volume in liters is possible b/c atleast one tank is defined as present
 					&&(EEPROM_areaEntriesUsed != 0) // calculation of volume in liters is possible b/c atleast one area is defined so the volume can be approximated with cuboids 
-					&&(distanceHigherThanEmpty > 0) // only attempt calculating the liters in the tank when there is acually anything in the tank, otherwise; an empty tank by definition has zerl liters inside of it.
+					&&(distanceHigherThanEmpty_cm > 0) // only attempt calculating the liters in the tank when there is acually anything in the tank, otherwise; an empty tank by definition has zerl liters inside of it.
 				  )
 				{
 					for(uint8_t j=0;j<EEPROM_areaEntriesUsed;j++)
 					{
-						if(EEPROM_areaEntrySpacing * (j+1) <= distanceHigherThanEmpty)
+						if(EEPROM_areaEntrySpacing_cm * (j+1) <= distanceHigherThanEmpty_cm)
 						{
 							// areaentry must be taken into account calculating the volume in liters b/c current fill is at higher level than the location of the currently iterated over area value
-							litersInTank += EEPROM_areaEntries[j] * EEPROM_areaEntrySpacing;
+							cm3InTank += (uint32_t)EEPROM_areaEntries_cm2[j] * (uint32_t)EEPROM_areaEntrySpacing_cm;
 						}
 						else
 						{
 							// area entry was measured at lower height than currently measured -- thus the current entry can not be used completely but instead the height that goes over the height where the area was measured at must be taken for the volume calculation
-							litersInTank += EEPROM_areaEntries[j] * (EEPROM_areaEntrySpacing-((EEPROM_areaEntrySpacing * (j+1)) - distanceHigherThanEmpty)); 
+							cm3InTank += (uint32_t)EEPROM_areaEntries_cm2[j] * (uint32_t)(EEPROM_areaEntrySpacing_cm-((EEPROM_areaEntrySpacing_cm * (j+1)) - distanceHigherThanEmpty_cm)); 
 							break;// leave the loop since all the area entries that would actually yield any valid liter-age of fluid have now been considered and accounted for.
 						}
 					}
-					litersInTank *= EEPROM_numOfTanks; // area is only for one tank in tank array thus total fluid amount is times number of individual tanks. assuming all tanks are equally full which is ensured by design ("communicating tubes")
+					cm3InTank *= (uint32_t)EEPROM_numOfTanks; // area is only for one tank in tank array thus total fluid amount is times number of individual tanks. assuming all tanks are equally full which is ensured by design ("communicating tubes")
 				}
 				else
 				{
 					// do not calculate the volume in liters b/c neccessary geometry data of tank array is not present or because tank is literally just empty
-					litersInTank = 0;
+					cm3InTank = 0;
 				}
 
 				const uint16_t maxDifferenceFluidLevel = EEPROM_tankempty_cm - EEPROM_tankfull_cm;
-				uint16_t percentage = (uint16_t)(((uint32_t)distanceHigherThanEmpty * (uint32_t)maxDifferenceFluidLevel)/100);
+				uint16_t percentage = (uint16_t)(((uint32_t)distanceHigherThanEmpty_cm * (uint32_t)100)/(uint32_t)maxDifferenceFluidLevel);
 				percentage = MIN(100, percentage); // clamp to 100% in case the percentage ever gets calculated to more than 100% (maybe measurement was not exact?!)
+				const uint16_t litersInTank = (uint16_t)((uint32_t)cm3InTank / (uint32_t)1000); // liters is cubic decimeters ie 10cm * 10cm * 10cm --> thus divide by 10^3 aka 1000
 				// all possible calculations performed --> now build up display content
 				
 				/*
@@ -222,7 +220,7 @@ void Appl_systemStateMachine_execute(void)
 				char percentageToBeDisplayed[10];
 				char voltageToBeDisplayed[10];
 
-				ultoa(distanceHigherThanEmpty, &distanceToBeDisplayed[0], 10); // base 10
+				ultoa(distanceHigherThanEmpty_cm, &distanceToBeDisplayed[0], 10); // base 10
 				ultoa(litersInTank, &litersToBeDisplayed[0], 10);
 				ultoa(percentage, &percentageToBeDisplayed[0],10);
 				ultoa(measuredBatVoltage, &voltageToBeDisplayed[0],10);
@@ -438,7 +436,7 @@ void Appl_systemStateMachine_execute(void)
 										{
 											responseBuffer[2] = HIGHBYTE_OF(ADDR_AREA_ENTRY_SPACING_CM);
 											responseBuffer[3] = LOWBYTE_OF(ADDR_AREA_ENTRY_SPACING_CM);
-											EEPROM_areaEntrySpacing = requestBuffer[5]; // only lsb b/c 8bit value
+											EEPROM_areaEntrySpacing_cm = requestBuffer[5]; // only lsb b/c 8bit value
 										}
 										break;
 										case ADDR_AVERAGING_SAMPLE_CNT:
@@ -471,9 +469,9 @@ void Appl_systemStateMachine_execute(void)
 
 												responseBuffer[2] = HIGHBYTE_OF(address);
 												responseBuffer[3] = LOWBYTE_OF(address);
-												EEPROM_areaEntries[index] = 0;
-												EEPROM_areaEntries[index] |= ((uint16_t)requestBuffer[4]) << 8;
-												EEPROM_areaEntries[index] |= ((uint16_t)requestBuffer[5]) << 0;
+												EEPROM_areaEntries_cm2[index] = 0;
+												EEPROM_areaEntries_cm2[index] |= ((uint16_t)requestBuffer[4]) << 8;
+												EEPROM_areaEntries_cm2[index] |= ((uint16_t)requestBuffer[5]) << 0;
 
 											}
 											else
@@ -531,7 +529,7 @@ void Appl_systemStateMachine_execute(void)
 											responseBuffer[2] = HIGHBYTE_OF(ADDR_AREA_ENTRY_SPACING_CM);
 											responseBuffer[3] = LOWBYTE_OF(ADDR_AREA_ENTRY_SPACING_CM);
 											responseBuffer[4] = 0; // 8bit value
-											responseBuffer[5] = EEPROM_areaEntrySpacing;
+											responseBuffer[5] = EEPROM_areaEntrySpacing_cm;
 										}
 										break;
 										case ADDR_AVERAGING_SAMPLE_CNT:
@@ -566,8 +564,8 @@ void Appl_systemStateMachine_execute(void)
 
 												responseBuffer[2] = HIGHBYTE_OF(address);
 												responseBuffer[3] = LOWBYTE_OF(address);
-												responseBuffer[4] = HIGHBYTE_OF(EEPROM_areaEntries[index]);
-												responseBuffer[5] = LOWBYTE_OF(EEPROM_areaEntries[index]);
+												responseBuffer[4] = HIGHBYTE_OF(EEPROM_areaEntries_cm2[index]);
+												responseBuffer[5] = LOWBYTE_OF(EEPROM_areaEntries_cm2[index]);
 											}
 											else
 											{
